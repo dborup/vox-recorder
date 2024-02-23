@@ -1,6 +1,7 @@
 # vox-recorder
 
 Voice activated audio recorder intended for scanner radio use. Record starts when audio level is higher than threshold and records end after 5 seconds of silence.
+Execution Flow: When executed, the script prompts the user to select an audio device for recording. It then continuously monitors for voice activity, recording each event as a separate file until the script is terminated.
 
 ## Depencies
 python3
