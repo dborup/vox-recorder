@@ -16,6 +16,11 @@
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software Foundation,
    Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
+
+   # dborup added this
+   # When executed, the script prompts the user to select an audio device for recording. 
+   # It then continuously monitors for voice activity, recording each event as a separate file until the script is terminated.
+   # you can run mulitple, if you want to have each instance saving output to each folder remember to specify save loacation 
                                        
 """
 from __future__ import print_function
@@ -30,12 +35,19 @@ import os
 
 SILENCE_THRESHOLD = 5000
 RECORD_AFTER_SILENCE_SECS = 5
-WAVEFILES_STORAGEPATH = os.path.expanduser("~/vox-records");
+WAVEFILES_STORAGEPATH = os.path.expanduser("~/vox-records") #folder location
 
 RATE = 44100
 MAXIMUMVOL = 32767
-CHUNK_SIZE = 1024
+CHUNK_SIZE = 4092 #or larger value if needed
 FORMAT = pyaudio.paInt16
+
+def list_audio_devices():
+    p = pyaudio.PyAudio()
+    for i in range(p.get_device_count()):
+        info = p.get_device_info_by_index(i)
+        print(f"Device {i}: {info['name']}")
+    p.terminate()
 
 def show_status(snd_data, record_started, record_started_stamp, wav_filename):
     "Displays volume levels"
@@ -96,14 +108,15 @@ def add_silence(snd_data, seconds):
     r.extend([0 for i in range(int(seconds*RATE))])
     return r
 
-def wait_for_activity():
+def wait_for_activity(device_index):
     """
     Listen sound and quit when sound is detected 
     """
     p = pyaudio.PyAudio()
     stream = p.open(format=FORMAT, channels=1, rate=RATE,
         input=True, output=True,
-        frames_per_buffer=CHUNK_SIZE)
+        frames_per_buffer=CHUNK_SIZE,
+        input_device_index=device_index)  # Specify device index
 
     record_started_stamp = 0
     wav_filename = ''
@@ -128,7 +141,7 @@ def wait_for_activity():
     return True
 
 
-def record_audio():
+def record_audio(device_index):
     """
     Record audio when activity is detected 
 
@@ -140,7 +153,8 @@ def record_audio():
     p = pyaudio.PyAudio()
     stream = p.open(format=FORMAT, channels=1, rate=RATE,
         input=True, output=True,
-        frames_per_buffer=CHUNK_SIZE)
+        frames_per_buffer=CHUNK_SIZE,
+        input_device_index=device_index)  # Specify device index
 
     num_silent = 0
     record_started_stamp = 0
@@ -184,15 +198,15 @@ def record_audio():
     r = add_silence(r, 0.5)
     return sample_width, r, wav_filename
 
-def voxrecord():
+def voxrecord(device_index):
     """
-    Listen audio from soudcard. If audio is detected, record it to file. After recording,
+    Listen audio from sound card. If audio is detected, record it to file. After recording,
     start again to wait for next activity
     """
             
     while 1:
-        idle = wait_for_activity()
-        sample_width, data, wav_filename = record_audio()
+        idle = wait_for_activity(device_index)
+        sample_width, data, wav_filename = record_audio(device_index)
         data = pack('<' + ('h'*len(data)), *data)
         wf = wave.open(wav_filename, 'wb')
         wf.setnchannels(1)
@@ -207,10 +221,11 @@ def voxrecord():
 
 if __name__ == '__main__':
     print("Voxrecorder started. Hit ctrl-c to quit.")
-      
+    list_audio_devices()
+    device_index = int(input("Enter the index of the desired sound card: "))  # Specify the index of the desired sound card
     if not os.access(WAVEFILES_STORAGEPATH, os.W_OK):
         print("Wave file save directory %s does not exist or is not writable. Aborting." % WAVEFILES_STORAGEPATH)
     else:
-        voxrecord()
+        voxrecord(device_index)
     
     print("Good bye.")
